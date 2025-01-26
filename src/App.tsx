@@ -13,9 +13,9 @@ import { AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
 
 // Mock approvers data - in a real app, this would come from your auth system
 const APPROVERS: Record<ApprovalStage, string> = {
-  'Business': 'John Doe',
-  'Technical': 'Jane Smith',
-  'AM Team': 'Mike Johnson'
+  'Business': 'Deepan Vampire',
+  'Technical': 'Tessa Smith',
+  'AM Team': 'Mike Tyson'
 };
 
 function App() {
