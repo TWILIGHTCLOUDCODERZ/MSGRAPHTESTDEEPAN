@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RequestStatus } from '../types';
-import { CheckCircle, XCircle, Clock, ChevronRight, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ChevronRight, Shield, ChevronDown, ArrowRight } from 'lucide-react';
 
 interface DashboardProps {
   requests: RequestStatus[];
 }
 
 export function Dashboard({ requests }: DashboardProps) {
+  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
+
   const getStatusIcon = (status: 'Pending' | 'Approved' | 'Denied') => {
     switch (status) {
       case 'Approved':
@@ -27,6 +29,57 @@ export function Dashboard({ requests }: DashboardProps) {
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
+  };
+
+  const getApprovalProgress = (request: RequestStatus) => {
+    const stages = ['Business', 'Technical', 'AM Team'];
+    const currentIndex = stages.indexOf(request.currentStage);
+    
+    return (
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-2">
+          {stages.map((stage, index) => {
+            const isCompleted = request.approvalHistory.some(h => h.stage === stage);
+            const isCurrent = request.currentStage === stage;
+            const isDenied = request.approvalHistory.some(h => h.stage === stage && h.status === 'Denied');
+            
+            return (
+              <React.Fragment key={stage}>
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isDenied
+                        ? 'bg-red-100'
+                        : isCompleted
+                        ? 'bg-green-100'
+                        : isCurrent
+                        ? 'bg-blue-100'
+                        : 'bg-gray-100'
+                    }`}
+                  >
+                    {isDenied ? (
+                      <XCircle className="w-5 h-5 text-red-600" />
+                    ) : isCompleted ? (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    ) : isCurrent ? (
+                      <Clock className="w-5 h-5 text-blue-600" />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full bg-gray-300" />
+                    )}
+                  </div>
+                  <span className="text-xs mt-1 font-medium text-gray-600">{stage}</span>
+                </div>
+                {index < stages.length - 1 && (
+                  <ArrowRight className={`w-4 h-4 ${
+                    isCompleted ? 'text-green-500' : 'text-gray-300'
+                  }`} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -58,13 +111,13 @@ export function Dashboard({ requests }: DashboardProps) {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-4">
                       {requests.map((request) => (
                         <div
                           key={request.id}
                           className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
                         >
-                          <div className="px-4 py-5 sm:p-6">
+                          <div className="px-6 py-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 {getStatusIcon(request.status)}
@@ -72,43 +125,113 @@ export function Dashboard({ requests }: DashboardProps) {
                                   {request.id}
                                 </h3>
                               </div>
-                              <span
-                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                                  request.status
-                                )}`}
+                              <button
+                                onClick={() => setExpandedRequest(
+                                  expandedRequest === request.id ? null : request.id
+                                )}
+                                className="flex items-center text-sm text-blue-600 hover:text-blue-800"
                               >
-                                {request.status}
-                              </span>
-                            </div>
-                            <div className="mt-4 space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Current Stage</span>
-                                <span className="font-medium text-gray-900">
-                                  {request.currentStage}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Approver</span>
-                                <span className="font-medium text-gray-900">
-                                  {request.approver}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Submitted</span>
-                                <span className="font-medium text-gray-900">
-                                  {request.createdAt.toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between text-sm">
-                              <span className="text-gray-500">
-                                {request.permissions.length} permissions
-                              </span>
-                              <button className="inline-flex items-center text-blue-600 hover:text-blue-800">
-                                View details
-                                <ChevronRight className="ml-1 h-4 w-4" />
+                                {expandedRequest === request.id ? 'Hide details' : 'View details'}
+                                <ChevronDown
+                                  className={`ml-1 h-4 w-4 transform transition-transform ${
+                                    expandedRequest === request.id ? 'rotate-180' : ''
+                                  }`}
+                                />
                               </button>
                             </div>
+
+                            <div className="mt-4 grid grid-cols-3 gap-4">
+                              <div>
+                                <span className="text-sm text-gray-500">Status</span>
+                                <span
+                                  className={`mt-1 px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                    request.status
+                                  )}`}
+                                >
+                                  {request.status}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-sm text-gray-500">Current Stage</span>
+                                <p className="mt-1 text-sm font-medium text-gray-900">
+                                  {request.currentStage}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-sm text-gray-500">Submitted</span>
+                                <p className="mt-1 text-sm font-medium text-gray-900">
+                                  {request.createdAt.toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+
+                            {getApprovalProgress(request)}
+
+                            {expandedRequest === request.id && (
+                              <div className="mt-6 border-t pt-4">
+                                <div className="space-y-4">
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-900">Approval History</h4>
+                                    <div className="mt-2 space-y-3">
+                                      {request.approvalHistory.map((history, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex items-start space-x-3 text-sm"
+                                        >
+                                          {getStatusIcon(history.status)}
+                                          <div>
+                                            <p className="font-medium text-gray-900">
+                                              {history.stage} - {history.status}
+                                            </p>
+                                            <p className="text-gray-500">
+                                              {history.approver} on{' '}
+                                              {history.date.toLocaleString()}
+                                            </p>
+                                            {history.comments && (
+                                              <p className="mt-1 text-gray-600 bg-gray-50 rounded p-2">
+                                                "{history.comments}"
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {request.status === 'Pending' && (
+                                        <div className="flex items-start space-x-3 text-sm">
+                                          <Clock className="h-5 w-5 text-yellow-500" />
+                                          <div>
+                                            <p className="font-medium text-gray-900">
+                                              Pending {request.currentStage} Approval
+                                            </p>
+                                            <p className="text-gray-500">
+                                              Waiting for {request.approver}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-900">Requested Permissions</h4>
+                                    <div className="mt-2 space-y-2">
+                                      {request.permissions.map((permission) => (
+                                        <div
+                                          key={permission.permission}
+                                          className="text-sm"
+                                        >
+                                          <p className="font-medium text-gray-900">
+                                            {permission.permission}
+                                          </p>
+                                          <p className="text-gray-500">
+                                            {permission.description}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
