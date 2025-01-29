@@ -28,9 +28,9 @@ interface AdminProps {
 }
 
 const APPROVERS = {
-  'Business': 'Deepanraj',
-  'Technical': 'Mike Tyson',
-  'AM Team': 'Jake Paul'
+  'Business': 'John Doe',
+  'Technical': 'Jane Smith',
+  'AM Team': 'Mike Johnson'
 };
 
 export function Admin({ requests, onApprove, onDeny }: AdminProps) {
