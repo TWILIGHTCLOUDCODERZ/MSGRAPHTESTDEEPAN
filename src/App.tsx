@@ -280,4 +280,3 @@ export default App;
 function setAdditionalFields() {
   throw new Error('Function not implemented.');
 }
-
