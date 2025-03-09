@@ -1,34 +1,36 @@
-name: AI Code Scanning
+name: OpenAI Code Scan
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  scan:
+  code-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: ⬇️ Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
-      - name: Install OpenAI package
+      - name: 🔧 Install Dependencies
         run: pip install openai
 
-      - name: Run AI Code Scan
-        run: python .github/scripts/scan_with_openai.py
+      - name: 🤖 Run Azure OpenAI Code Scanner
         env:
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_DEPLOYMENT_NAME: ${{ secrets.AZURE_DEPLOYMENT_NAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          OPENAI_API_DEPLOYMENT_NAME: ${{ secrets.OPENAI_API_DEPLOYMENT_NAME }}
+        run: |
+          python .github/scripts/scan_with_openai.py . --output openai_code_scan_report.txt
 
-      - name: Upload Scan Report
-        uses: actions/upload-artifact@v4
+      - name: 📤 Upload Scan Report
+        uses: actions/upload-artifact@v3
         with:
-          name: ai-code-scan-report
-          path: scan_report.md
+          name: openai-scan-report
+          path: openai_code_scan_report.txt
