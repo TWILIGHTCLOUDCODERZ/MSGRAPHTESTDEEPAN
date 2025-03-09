@@ -30,7 +30,7 @@ jobs:
           python .github/scripts/scan_with_openai.py . --output openai_code_scan_report.txt
 
       - name: 📤 Upload Scan Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: openai-scan-report
           path: openai_code_scan_report.txt
