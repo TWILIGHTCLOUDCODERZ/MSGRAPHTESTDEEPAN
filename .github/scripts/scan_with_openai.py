@@ -1,79 +1,69 @@
 import os
 import openai
+import argparse
 
-# Configure your API key here or use environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# --- Configuration from environment variables ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_BASE = os.getenv("OPENAI_API_BASE")
+OPENAI_API_DEPLOYMENT_NAME = os.getenv("OPENAI_API_DEPLOYMENT_NAME")
 
-SUPPORTED_EXTENSIONS = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.cs']
+if not all([OPENAI_API_KEY, OPENAI_API_BASE, OPENAI_API_DEPLOYMENT_NAME]):
+    raise ValueError("Missing Azure OpenAI configuration in environment variables.")
 
-def is_supported_file(filename):
-    return any(filename.endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+openai.api_type = "azure"
+openai.api_key = OPENAI_API_KEY
+openai.api_base = OPENAI_API_BASE
+openai.api_version = "2023-07-01-preview"
 
-def collect_code_files(root_dir):
-    code_files = []
-    for root, _, files in os.walk(root_dir):
-        for file in files:
-            if is_supported_file(file):
-                code_files.append(os.path.join(root, file))
-    return code_files
+def scan_file(filepath):
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
 
-def read_file_content(file_path):
-    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-        return f.read()
+        prompt = f"""
+You are a code security scanner. Review the following code for any bugs, security vulnerabilities, performance issues, or anti-patterns. Provide a detailed report with suggestions:
 
-def analyze_code_with_openai(filename, content):
-    prompt = f"""
-You are a static code analysis tool like SonarQube.
-Your task is to perform a detailed code scan on the following file:
-Filename: {filename}
-
-Provide the following:
-1. Code Smells & Maintainability Issues
-2. Security Vulnerabilities (focus on OWASP Top 10)
-3. Refactoring Recommendations
-4. Missing or Poor Documentation/Comments
-
-Respond in a structured format using bullet points.
+File: {filepath}
 
 Code:
-\"\"\"
 {content}
-\"\"\"
 """
-    try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
-            messages=[{"role": "user", "content": prompt}],
+            engine=OPENAI_API_DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": "You are a helpful and expert code reviewer."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.2,
+            max_tokens=1000
         )
-        return response.choices[0].message.content
+
+        return f"### Scan Report for {filepath} ###\n{response['choices'][0]['message']['content']}\n"
     except Exception as e:
-        return f"Error analyzing {filename}: {e}"
+        return f"Error scanning {filepath}: {e}\n"
 
-def scan_project_with_openai(project_path):
-    files = collect_code_files(project_path)
-    results = {}
-
-    for file_path in files:
-        print(f"🔍 Scanning {file_path}...")
-        content = read_file_content(file_path)
-        analysis = analyze_code_with_openai(file_path, content)
-        results[file_path] = analysis
-
+def scan_directory(directory):
+    results = ""
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith((".py", ".js", ".ts", ".java", ".cs", ".go", ".rb")):
+                filepath = os.path.join(root, file)
+                print(f"Scanning: {filepath}")
+                results += scan_file(filepath) + "\n\n"
     return results
 
-def write_report(results, output_path="openai_code_scan_report.txt"):
-    with open(output_path, "w", encoding="utf-8") as f:
-        for filepath, analysis in results.items():
-            f.write(f"\n{'='*40}\nAnalysis for: {filepath}\n{'='*40}\n")
-            f.write(analysis + "\n")
-    print(f"\n✅ Report saved to: {output_path}")
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("directory", help="Path to the codebase to scan")
+    parser.add_argument("--output", help="Path to save the scan report", default="openai_code_scan_report.txt")
+    args = parser.parse_args()
 
-# Example usage
+    report = scan_directory(args.directory)
+
+    with open(args.output, "w", encoding="utf-8") as f:
+        f.write(report)
+
+    print(f"\n✅ Scan complete. Report saved to {args.output}")
+
 if __name__ == "__main__":
-    project_path = input("Enter the path to your project directory: ").strip()
-    if not os.path.exists(project_path):
-        print("❌ Directory not found.")
-    else:
-        result = scan_project_with_openai(project_path)
-        write_report(result)
+    main()
