@@ -1,48 +1,57 @@
 import os
 import openai
+from openai import AzureOpenAI
 
-openai.api_type = "azure"
-openai.api_base = os.getenv("AZURE_OPENAI_ENDPOINT")
-openai.api_key = os.getenv("AZURE_OPENAI_API_KEY")
-openai.api_version = "2023-05-15"
+SENSITIVE_FILES = [".env", ".env.local", ".env.production"]
 
-deployment_name = os.getenv("AZURE_DEPLOYMENT_NAME")
-
-def scan_code(file_path):
-    with open(file_path, 'r') as f:
-        code = f.read()
-
-    prompt = f"""Analyze the following code for security issues, bad practices, and suggest improvements:
-```python
-{code}
-```"""
-
-    try:
-        response = openai.ChatCompletion.create(
-            engine=deployment_name,
-            messages=[
-                {"role": "system", "content": "You are a secure code auditor."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=1000
-        )
-        return response['choices'][0]['message']['content']
-    except Exception as e:
-        return f"Error scanning {file_path}: {str(e)}"
+def delete_sensitive_files():
+    for file in SENSITIVE_FILES:
+        if os.path.exists(file):
+            try:
+                os.remove(file)
+                print(f"🔒 Deleted sensitive file: {file}")
+            except Exception as e:
+                print(f"⚠️ Failed to delete {file}: {e}")
 
 def scan_repo():
-    report = ""
-    for root, dirs, files in os.walk('.'):
-        for file in files:
-            if file.endswith(('.py', '.js', '.java')):  # Add more extensions as needed
-                path = os.path.join(root, file)
-                print(f"Scanning {path}...")
-                result = scan_code(path)
-                report += f"\n## {path}\n{result}\n"
+    delete_sensitive_files()
+    
+    client = AzureOpenAI(
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version="2023-05-15"
+    )
 
-    with open("scan_report.md", "w") as f:
-        f.write(report)
+    report_lines = []
+    for root, _, files in os.walk("."):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if not file_path.endswith((".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".json")):
+                continue
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+
+                response = client.chat.completions.create(
+                    model=os.getenv("AZURE_DEPLOYMENT_NAME"),
+                    messages=[
+                        {"role": "system", "content": "You are a secure code auditor."},
+                        {"role": "user", "content": f"Scan the following code:\n{code}"}
+                    ],
+                    temperature=0.1,
+                    max_tokens=1000
+                )
+
+                result = response.choices[0].message.content.strip()
+                report_lines.append(f"## {file_path}\n{result}\n")
+
+            except Exception as e:
+                report_lines.append(f"## {file_path}\nError scanning {file_path}: {e}\n")
+
+    with open("scan_report.md", "w", encoding="utf-8") as report_file:
+        report_file.write("\n".join(report_lines))
+    print("✅ AI Code Scan complete. Report saved to scan_report.md")
 
 if __name__ == "__main__":
     scan_repo()
